@@ -21,15 +21,17 @@
             <label>重复密码：</label>
             <input class="repeatpass" type="password" name="repeatpass">
         </div>
+        <div>
+            <label>上传头像：</label>
+            <input type="file" name="avator" id="avator">
+            <input type="hidden" id="avatorVal">
+            <img class="preview" alt="预览头像">
+        </div>
         <div class="submit">注册</div>
-        <!--<div class="message">-->
-            <!--<div class="error"></div>-->
-            <!--<div class="success"></div>-->
-        <!--</div>-->
     </form>
 </div>
 <script>
-  $('.submit').click(()=>{
+  /*$('.submit').click(()=>{
     console.log($('.form').serialize())
     $.ajax({
       url: "/signup",
@@ -39,21 +41,19 @@
       dataType: 'json',
       success: function (msg) {
         if (msg.data == 1) {
-
           $('.error').text('用户名存在')
           $('input').val('')
           fade('.error')
         }
-        else if (msg.data == 2){
+        else if (msg.data == 2) {
           $('.error').text('请输入重复的密码')
           fade('.error')
         }
-        else if(msg.data == 3){
+        else if(msg.data == 3) {
           $('.success').text('注册成功')
           fade('.success')
           setTimeout(()=>{
             // window.location.href="/signin"
-
           },1000)
         }
         //console.log($('.ui.error.message').text);
@@ -62,6 +62,88 @@
         alert('异常');
       }
     })
+  })*/
+  $(window).keyup(function (e) {
+    //console.log(e.keyCode)
+    if (e.keyCode == 13) {
+      $('.submit').click()
+    }
+  })
+  $('#avator').change(function(){
+    if (this.files.length != 0) {
+      var file = this.files[0],
+        reader = new FileReader();
+      if (!reader) {
+        this.value = '';
+        return;
+      };
+      console.log(file.size,file.type)
+      // if (file.size >= 1024 * 1024 / 2) {
+      // 	fade("请上传小于512kb的图片!")
+      // 	return
+      // }
+      if (!/image/g.test(file.type)) {
+        fade("请上传图片文件!")
+        $('#avatorVal').val('')
+        $('form .preview').attr('src', '')
+        $('form .preview').fadeOut()
+        return
+      }
+      reader.onload = function (e) {
+        this.value = '';
+        $('form .preview').attr('src', e.target.result)
+        $('form .preview').fadeIn()
+        var image = new Image();
+        image.onload = function(){
+          var canvas = document.createElement('canvas');
+          var ctx = canvas.getContext("2d");
+          canvas.width = 100;
+          canvas.height = 100;
+          ctx.clearRect(0, 0, 100, 100);
+          ctx.drawImage(image, 0, 0, 100, 100);
+          var blob = canvas.toDataURL("image/png");
+          $('#avatorVal').val(blob)
+        }
+        image.src = e.target.result
+      };
+      reader.readAsDataURL(file);
+    };
+  })
+  $('.submit').click(function(){
+    // console.log($('.form').serialize())
+    if ($('input[name=name]').val().trim() == '') {
+      fade('请输入用户名！')
+    }else if($('input[name=name]').val().match(/[<'">]/g)){
+      fade('请输入合法字符！')
+    }else if($('#avatorVal').val() == ''){
+      fade('请上传头像！')
+    }else{
+      $.ajax({
+        url: "/signup",
+        data: {
+          name: $('input[name=name]').val(),
+          password: $('input[name=password]').val(),
+          repeatpass: $('input[name=repeatpass]').val(),
+          avator: $('#avatorVal').val(),
+        },
+        type: "POST",
+        cache: false,
+        dataType: 'json',
+        success: function (msg) {
+          if(msg.code == '0000'){
+            fade('注册成功')
+            setTimeout(function(){
+              window.location.href = "/signin"
+            },1000)
+          }else{
+            fade(msg.message)
+          }
+        },
+        error: function () {
+          alert('异常');
+        }
+      })
+    }
   })
 </script>
 <% include footer %>

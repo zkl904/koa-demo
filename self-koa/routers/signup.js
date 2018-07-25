@@ -1,8 +1,13 @@
 var router=require('koa-router')();
 var userModel=require('../lib/mysql.js');
 
+const checkNotLogin = require('../middlewares/check.js').checkNotLogin
+const checkLogin = require('../middlewares/check.js').checkLogin
+
 // 加密
 var md5=require('md5')
+const moment = require('moment');
+const fs = require('fs')
 
 // GET '/signup' 注册页
 // 使用get方式得到’/signup’页面，然后渲染signup模板，这里我们还没有在写signup.ejs
@@ -24,10 +29,11 @@ router.post('/signup',async (ctx,next)=>{
   var user={
     name:ctx.request.body.name,
     pass:ctx.request.body.password,
-    repeatpass:ctx.request.body.repeatpass
+    repeatpass:ctx.request.body.repeatpass,
+    avator: ctx.request.body.avator
   }
   await userModel.findDataByName(user.name)
-    .then(result=>{
+    .then(async (result) =>{
       // var res=JSON.parse(JSON.stringify(reslut))
       console.log(result)
 
@@ -39,20 +45,51 @@ router.post('/signup',async (ctx,next)=>{
           console.log(error)
         }
         ctx.body={
-          data:1
+          code: '500',
+          message: '用户存在'
         };;
       }else if (user.pass!==user.repeatpass || user.pass==''){
-        ctx.body={
-          data:2   // 两次密码不一致
-        };
+        ctx.body = {
+          code: '499',
+          message: '两次输入的密码不一致'
+        }
         console.log('两次密码不一致')
-      }else{
-        ctx.body={
-          data:3
-        };
-        console.log('注册成功')
-        // ctx.session.user=ctx.request.body.name
-        userModel.insertData([ctx.request.body.name,md5(ctx.request.body.password)])
+      } else {
+        // console.log('注册成功');
+        // console.log(ctx.request.body.name);
+        // console.log(md5(ctx.request.body.password));
+        let base64Data = user.avator.replace(/^data:image\/\w+;base64,/, ""),
+          dataBuffer = new Buffer(base64Data, 'base64'),
+          getName = Number(Math.random().toString().substr(3)).toString(36) + Date.now(),
+          upload = await new Promise((reslove, reject) => {
+            fs.writeFile('./public/images/' + getName + '.png', dataBuffer, err => {
+              if (err) {
+                throw err;
+                reject(false)
+              };
+              reslove(true)
+              console.log('头像上传成功')
+            });
+          });
+        console.log('upload', upload)
+        // ctx.session.user=ctx.request.body.name;
+        if (upload) {
+          await userModel.insertData([user.name,md5(user.pass),getName + '.png',moment().format('YYYY-MM-DD HH:mm:ss')])
+            .then(res => {
+              console.log('注册成功', res)
+              //注册成功
+              ctx.body = {
+                code: '0000',
+                message: '注册成功'
+              };
+            })
+        } else {
+          console.log('头像上传失败')
+          ctx.body = {
+            code: 501,
+            message: '头像上传失败'
+          }
+        }
       }
     })
 

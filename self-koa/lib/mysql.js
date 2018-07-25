@@ -1,56 +1,22 @@
-/*
-关于数据库的使用这里介绍一下，首先我们建立了数据库的连接池，以便后面的操作都可以使用到，我们创建了一个函数query，通过返回promise的方式以便可以方便用.then()来获取数据库返回的数据，然后我们定义了三个表的字段，通过createTable来创建我们后面所需的三个表，包括posts(存储文章)，users(存储用户)，comment(存储评论)，create table if not exists users()表示如果users表不存在则创建该表，避免每次重复建表报错的情况。后面我们定义了一系列的方法，最后把他们exports暴露出去。*/
-/** id主键递增
-* name: 用户名
-* pass：密码
-* title：文章标题
-* content：文章内容和评论
-* uid：发表文章的用户id
-* moment：创建时间
-* comments：文章评论数
-* pv：文章浏览数
-* postid：文章id*/
-
 var mysql = require('mysql');
 var config = require('../config/default.js')
-
 
 var pool  = mysql.createPool({
   host     : config.database.HOST,
   user     : config.database.USERNAME,
   password : config.database.PASSWORD,
-  database : config.database.DATABASE
+  database : config.database.DATABASE,
+  port     : config.database.PORT
 });
 
-// 注册用户
-/*我们写了一个_sql的sql语句，意思是插入到users的表中（在这之前我们已经建立了users表）然后要插入的数据分别是name和pass，就是用户名和密码，后面values(?,?)意思很简单，你有几个值就写几个问号，最后调用query函数把sql语句传进去*/
-/*let insertData = function( value ) {
-  let _sql = "insert into users(name,pass) values(?,?);"
-  return query( _sql, value )
-}*/
-
-// let query = function( sql, values ) {
-// pool.getConnection(function(err, connection) {
-//   // 使用连接
-//   connection.query( sql,values, function(err, rows) {
-//     // 使用连接执行查询
-//     console.log(rows)
-//     connection.release();
-//     //连接不再使用，返回到连接池
-//   });
-// });
-// }
-
-
-let query = function( sql, values ) {
+let query = ( sql, values ) => {
 
   return new Promise(( resolve, reject ) => {
-    pool.getConnection(function(err, connection) {
+    pool.getConnection( (err, connection) => {
       if (err) {
-        resolve( err )
+        reject( err )
       } else {
         connection.query(sql, values, ( err, rows) => {
-
           if ( err ) {
             reject( err )
           } else {
@@ -64,40 +30,63 @@ let query = function( sql, values ) {
 
 }
 
-users=
-  `create table if not exists users(
- id INT NOT NULL AUTO_INCREMENT,
- name VARCHAR(100) NOT NULL,
- pass VARCHAR(40) NOT NULL,
- PRIMARY KEY ( id )
-);`
 
+// let query = function( sql, values ) {
+// pool.getConnection(function(err, connection) {
+//   // 使用连接
+//   connection.query( sql,values, function(err, rows) {
+//     // 使用连接执行查询
+//     console.log(rows)
+//     connection.release();
+//     //连接不再使用，返回到连接池
+//   });
+// });
+// }
 
-// posts(存储文章)
-posts=
-  `create table if not exists posts(
- id INT NOT NULL AUTO_INCREMENT,
- name VARCHAR(100) NOT NULL,
- title VARCHAR(40) NOT NULL,
- content  VARCHAR(40) NOT NULL,
- uid  VARCHAR(40) NOT NULL,
- moment  VARCHAR(40) NOT NULL,
- comments  VARCHAR(40) NOT NULL DEFAULT '0',
- pv  VARCHAR(40) NOT NULL DEFAULT '0',
- PRIMARY KEY ( id )
-);`
+let users =
+    `create table if not exists users(
+     id INT NOT NULL AUTO_INCREMENT,
+     name VARCHAR(100) NOT NULL COMMENT '用户名',
+     pass VARCHAR(100) NOT NULL COMMENT '密码',
+     avator VARCHAR(100) NOT NULL COMMENT '头像',
+     moment VARCHAR(100) NOT NULL COMMENT '注册时间',
+     PRIMARY KEY ( id )
+    );`
+// let users=
+//   `create table if not exists users(
+//  id INT NOT NULL AUTO_INCREMENT,
+//  name VARCHAR(100) NOT NULL,
+//  pass VARCHAR(40) NOT NULL,
+//  PRIMARY KEY ( id )
+// );`
 
-// comment(存储评论)
-comment=
-  `create table if not exists comment(
- id INT NOT NULL AUTO_INCREMENT,
- name VARCHAR(100) NOT NULL,
- content VARCHAR(40) NOT NULL,
- postid VARCHAR(40) NOT NULL,
- PRIMARY KEY ( id )
-);`
+let posts =
+    `create table if not exists posts(
+     id INT NOT NULL AUTO_INCREMENT,
+     name VARCHAR(100) NOT NULL COMMENT '文章作者',
+     title TEXT(0) NOT NULL COMMENT '评论题目',
+     content TEXT(0) NOT NULL COMMENT '评论内容',
+     md TEXT(0) NOT NULL COMMENT 'markdown',
+     uid VARCHAR(40) NOT NULL COMMENT '用户id',
+     moment VARCHAR(100) NOT NULL COMMENT '发表时间',
+     comments VARCHAR(200) NOT NULL DEFAULT '0' COMMENT '文章评论数',
+     pv VARCHAR(40) NOT NULL DEFAULT '0' COMMENT '浏览量',
+     avator VARCHAR(100) NOT NULL COMMENT '用户头像',
+     PRIMARY KEY(id)
+    );`
 
-let createTable = function( sql ) {
+let comment =
+    `create table if not exists comment(
+     id INT NOT NULL AUTO_INCREMENT,
+     name VARCHAR(100) NOT NULL COMMENT '用户名称',
+     content TEXT(0) NOT NULL COMMENT '评论内容',
+     moment VARCHAR(40) NOT NULL COMMENT '评论时间',
+     postid VARCHAR(40) NOT NULL COMMENT '文章id',
+     avator VARCHAR(100) NOT NULL COMMENT '用户头像',
+     PRIMARY KEY(id) 
+    );`
+
+let createTable = ( sql ) => {
   return query( sql, [] )
 }
 
@@ -107,124 +96,120 @@ createTable(posts)
 createTable(comment)
 
 // 注册用户
-let insertData = function( value ) {
-  let _sql = "insert into users(name,pass) values(?,?);"
+exports.insertData = ( value ) => {
+  let _sql = "insert into users set name=?,pass=?,avator=?,moment=?;"
+  // let _sql = "insert into users set name=?,pass=?;"
   return query( _sql, value )
 }
-
+// 删除用户
+exports.deleteUserData = ( name ) => {
+  let _sql = `delete from users where name="${name}";`
+  return query( _sql )
+}
+// 查找用户
+exports.findUserData = ( name ) => {
+  let _sql = `select * from users where name="${name}";`
+  return query( _sql )
+}
 // 发表文章
-let insertPost = function( value ) {
-  let _sql = "insert into posts(name,title,content,uid,moment) values(?,?,?,?,?);"
+exports.insertPost = ( value ) => {
+  let _sql = "insert into posts set name=?,title=?,content=?,md=?,uid=?,moment=?,avator=?;"
   return query( _sql, value )
 }
-
 // 更新文章评论数
-let updatePostComment = function( value ) {
-  let _sql = "update posts set  comments=? where id=?"
+exports.updatePostComment = ( value ) => {
+  let _sql = "update posts set comments=? where id=?"
   return query( _sql, value )
 }
 
 // 更新浏览数
-let updatePostPv = function( value ) {
-  let _sql = "update posts set  pv=? where id=?"
+exports.updatePostPv = ( value ) => {
+  let _sql = "update posts set pv=? where id=?"
   return query( _sql, value )
 }
 
 // 发表评论
-let insertComment = function( value ) {
-  let _sql = "insert into comment(name,content,postid) values(?,?,?);"
+exports.insertComment = ( value ) => {
+  let _sql = "insert into comment set name=?,content=?,moment=?,postid=?,avator=?;"
   return query( _sql, value )
 }
-
 // 通过名字查找用户
-let findDataByName = function (  name ) {
-  let _sql = `
-    SELECT * from users
-      where name="${name}"
-      `
+exports.findDataByName =  ( name ) => {
+  let _sql = `select * from users where name="${name}";`
   return query( _sql)
 }
-
 // 通过文章的名字查找用户
-let findDataByUser = function (  name ) {
-  let _sql = `
-    SELECT * from posts
-      where name="${name}"
-      `
+exports.findDataByUser =  ( name ) => {
+  let _sql = `select * from posts where name="${name}";`
   return query( _sql)
 }
-
 // 通过文章id查找
-let findDataById = function (  id ) {
-  let _sql = `
-    SELECT * from posts
-      where id="${id}"
-      `
+exports.findDataById =  ( id ) => {
+  let _sql = `select * from posts where id="${id}";`
   return query( _sql)
 }
-
+// 通过文章id查找
+exports.findCommentById =  ( id ) => {
+  let _sql = `select * from comment where postid="${id}";`
+  return query( _sql)
+}
 // 通过评论id查找
-let findCommentById = function ( id ) {
-  let _sql = `
-    SELECT * FROM comment where postid="${id}"
-      `
+exports.findComment =  ( id ) => {
+  let _sql = `select * from comment where id="${id}";`
   return query( _sql)
 }
 
 // 查询所有文章
-let findAllPost = function (  ) {
-  let _sql = `
-    SELECT * FROM posts
-      `
+exports.findAllPost =  () => {
+  let _sql = ` select * from posts;`
   return query( _sql)
 }
-
+// 查询分页文章
+exports.findPostByPage =  ( page ) => {
+  let _sql = ` select * from posts limit ${(page-1)*10},10;`
+  return query( _sql)
+}
+// 查询个人分页文章
+exports.findPostByUserPage =  (name,page) => {
+  let _sql = ` select * from posts where name="${name}" order by id desc limit ${(page-1)*10},10 ;`
+  return query( _sql)
+}
 // 更新修改文章
-let updatePost = function(values){
-  let _sql=`update posts set  title=?,content=? where id=?`
+exports.updatePost = (values) => {
+  let _sql = `update posts set title=?,content=?,md=? where id=?`
   return query(_sql,values)
 }
-
 // 删除文章
-let deletePost = function(id){
-  let _sql=`delete from posts where id = ${id}`
+exports.deletePost = (id) => {
+  let _sql = `delete from posts where id = ${id}`
   return query(_sql)
 }
-
 // 删除评论
-let deleteComment = function(id){
-  let _sql=`delete from comment where id = ${id}`
+exports.deleteComment = (id) => {
+  let _sql = `delete from comment where id=${id}`
   return query(_sql)
 }
-
 // 删除所有评论
-let deleteAllPostComment = function(id){
-  let _sql=`delete from comment where postid = ${id}`
+exports.deleteAllPostComment = (id) => {
+  let _sql = `delete from comment where postid=${id}`
+  return query(_sql)
+}
+// 查找评论数
+exports.findCommentLength = (id) => {
+  let _sql = `select content from comment where postid in (select id from posts where id=${id})`
   return query(_sql)
 }
 
-// 查找
-let findCommentLength = function(id){
-  let _sql=`select content from comment where postid in (select id from posts where id=${id})`
+// 滚动无限加载数据
+exports.findPageById = (page) => {
+  let _sql = `select * from posts limit ${(page-1)*5},5;`
+  return query(_sql)
+}
+// 评论分页
+exports.findCommentByPage = (page,postId) => {
+  let _sql = `select * from comment where postid=${postId} order by id desc limit ${(page-1)*10},10;`
   return query(_sql)
 }
 
-module.exports={
-  query,
-  createTable,
-  insertData,
-  findDataByName,
-  insertPost,
-  findAllPost,
-  findDataByUser,
-  findDataById,
-  insertComment,
-  findCommentById,
-  updatePost,
-  deletePost,
-  deleteComment,
-  findCommentLength,
-  updatePostComment,
-  deleteAllPostComment,
-  updatePostPv
-}
+
+

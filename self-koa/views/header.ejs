@@ -48,4 +48,25 @@
       $(data).fadeOut(1500)
     }
   }
+  $(function(){
+    $('.signout').click(function(){
+      $.ajax({
+        url: "/signout",
+        type: "GET",
+        cache: false,
+        dataType: 'json',
+        success: function (msg) {
+          if (msg) {
+            fade('登出成功')
+            setTimeout(function(){
+              location.href = "/posts"
+            },1500)
+          }
+        },
+        error: function () {
+          alert('异常');
+        }
+      })
+    })
+  })
 </script>
